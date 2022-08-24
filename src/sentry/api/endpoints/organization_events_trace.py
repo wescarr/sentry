@@ -531,8 +531,7 @@ class OrganizationEventsTraceEndpoint(OrganizationEventsTraceEndpointBase):
         query = " ".join(
             [
                 "MATCH path = (pt:Event)-[:PARENT_OF*]->(leaf:Event)",
-                "WHERE NOT (leaf)-->(:Event)",
-                "AND pt.parent_span_id is NULL",
+                "WHERE pt.parent_span_id is NULL",
                 "AND pt.trace_id = $trace_id",
                 "AND leaf.trace_id = $trace_id",
                 "RETURN REDUCE(p = [], n IN nodes(path) | CASE WHEN n:Event THEN p + n ELSE p END)[-2..] AS edge",
