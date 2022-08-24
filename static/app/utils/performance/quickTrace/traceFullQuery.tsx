@@ -45,6 +45,9 @@ function getTraceFullRequestPayload({
   if (eventId) {
     additionalApiPayload.event_id = eventId;
   }
+  if (props.location.query.neo4j === '1') {
+    additionalApiPayload.neo4j = '1';
+  }
   return additionalApiPayload;
 }
 
