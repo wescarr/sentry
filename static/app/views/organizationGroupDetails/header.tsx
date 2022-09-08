@@ -326,9 +326,6 @@ class GroupHeader extends Component<Props, State> {
       </GuideAnchor>
     );
 
-    // TODO: In the future we will be able to access a 'type' property on groups, we should use that instead
-    const isPerformanceIssue = !!event?.contexts?.performance_issue;
-
     return (
       <Layout.Header>
         <div className={className}>
@@ -428,7 +425,7 @@ class GroupHeader extends Component<Props, State> {
             query={location.query}
           />
           <NavTabs>
-            {isPerformanceIssue
+            {group.issueCategory === 'performance'
               ? this.getPerformanceIssueTabs()
               : this.getErrorIssueTabs()}
           </NavTabs>
