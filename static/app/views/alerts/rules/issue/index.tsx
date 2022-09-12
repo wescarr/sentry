@@ -980,13 +980,7 @@ class IssueRuleEditor extends AsyncView<Props, State> {
                                           error: this.hasError('actionMatch'),
                                         })}
                                         inline={false}
-                                        styles={{
-                                          control: provided => ({
-                                            ...provided,
-                                            minHeight: '20px',
-                                            height: '20px',
-                                          }),
-                                        }}
+                                        size="xs"
                                         isSearchable={false}
                                         isClearable={false}
                                         name="actionMatch"
@@ -1051,13 +1045,7 @@ class IssueRuleEditor extends AsyncView<Props, State> {
                                         error: this.hasError('filterMatch'),
                                       })}
                                       inline={false}
-                                      styles={{
-                                        control: provided => ({
-                                          ...provided,
-                                          minHeight: '20px',
-                                          height: '20px',
-                                        }),
-                                      }}
+                                      size="xs"
                                       isSearchable={false}
                                       isClearable={false}
                                       name="filterMatch"
