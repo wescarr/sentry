@@ -48,6 +48,7 @@ pip-tools==6.7.0
 platformdirs==2.5.2
 pluggy==0.13.1
 pre-commit==2.18.1
+psutil==5.9.2
 py==1.11.0
 pycodestyle==2.9.0
 pyflakes==2.5.0

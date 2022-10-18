@@ -5,6 +5,7 @@ exam>=0.10.6
 freezegun>=1.1.0
 honcho>=1.1.0
 openapi-core>=0.14.2
+psutil
 pytest>=7.1.3
 pytest-cov>=3.0.0
 pytest-django>=4.4.0

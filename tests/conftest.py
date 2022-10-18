@@ -1,5 +1,6 @@
 import os
 
+import psutil
 import pytest
 
 pytest_plugins = ["sentry.utils.pytest"]
@@ -16,6 +17,13 @@ pytest_plugins = ["sentry.utils.pytest"]
 #
 # Inspired by:
 # https://github.com/pytest-dev/pytest/blob/master/src/_pytest/terminal.py
+
+
+@pytest.fixture(autouse=True)
+def unclosed_files():
+    fds = frozenset(psutil.Process().open_files())
+    yield
+    assert frozenset(psutil.Process().open_files()) == fds
 
 
 @pytest.hookimpl(tryfirst=True, hookwrapper=True)
