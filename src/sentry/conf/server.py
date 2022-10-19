@@ -10,7 +10,7 @@ import socket
 import sys
 import tempfile
 from datetime import datetime, timedelta
-from typing import Iterable
+from typing import Iterable, Mapping, Tuple
 from urllib.parse import urlparse
 
 import sentry
@@ -660,7 +660,7 @@ CELERY_QUEUES = [
     Queue("merge", routing_key="merge"),
     Queue("options", routing_key="options"),
     Queue("post_process_errors", routing_key="post_process_errors"),
-    Queue("post_process_performance", routing_key="post_process_performance"),
+    Queue("post_process_transactions", routing_key="post_process_transactions"),
     Queue("relay_config", routing_key="relay_config"),
     Queue("relay_config_bulk", routing_key="relay_config_bulk"),
     Queue("reports.deliver", routing_key="reports.deliver"),
@@ -2325,7 +2325,7 @@ SENTRY_BUILTIN_SOURCES = {
         "id": "sentry:microsoft",
         "name": "Microsoft",
         "layout": {"type": "symstore"},
-        "filters": {"filetypes": ["pdb", "pe"]},
+        "filters": {"filetypes": ["pe", "pdb", "portablepdb"]},
         "url": "https://msdl.microsoft.com/download/symbols/",
         "is_public": True,
     },
@@ -2334,7 +2334,7 @@ SENTRY_BUILTIN_SOURCES = {
         "id": "sentry:citrix",
         "name": "Citrix",
         "layout": {"type": "symstore"},
-        "filters": {"filetypes": ["pdb", "pe"]},
+        "filters": {"filetypes": ["pe", "pdb"]},
         "url": "http://ctxsym.citrix.com/symbols/",
         "is_public": True,
     },
@@ -2343,7 +2343,7 @@ SENTRY_BUILTIN_SOURCES = {
         "id": "sentry:intel",
         "name": "Intel",
         "layout": {"type": "symstore"},
-        "filters": {"filetypes": ["pdb", "pe"]},
+        "filters": {"filetypes": ["pe", "pdb"]},
         "url": "https://software.intel.com/sites/downloads/symbols/",
         "is_public": True,
     },
@@ -2352,7 +2352,7 @@ SENTRY_BUILTIN_SOURCES = {
         "id": "sentry:amd",
         "name": "AMD",
         "layout": {"type": "symstore"},
-        "filters": {"filetypes": ["pdb", "pe"]},
+        "filters": {"filetypes": ["pe", "pdb"]},
         "url": "https://download.amd.com/dir/bin/",
         "is_public": True,
     },
@@ -2361,7 +2361,7 @@ SENTRY_BUILTIN_SOURCES = {
         "id": "sentry:nvidia",
         "name": "NVIDIA",
         "layout": {"type": "symstore"},
-        "filters": {"filetypes": ["pdb", "pe"]},
+        "filters": {"filetypes": ["pe", "pdb"]},
         "url": "https://driver-symbols.nvidia.com/",
         "is_public": True,
     },
@@ -2370,7 +2370,7 @@ SENTRY_BUILTIN_SOURCES = {
         "id": "sentry:chromium",
         "name": "Chromium",
         "layout": {"type": "symstore"},
-        "filters": {"filetypes": ["pdb", "pe"]},
+        "filters": {"filetypes": ["pe", "pdb"]},
         "url": "https://chromium-browser-symsrv.commondatastorage.googleapis.com/",
         "is_public": True,
     },
@@ -2379,7 +2379,7 @@ SENTRY_BUILTIN_SOURCES = {
         "id": "sentry:unity",
         "name": "Unity",
         "layout": {"type": "symstore"},
-        "filters": {"filetypes": ["pdb", "pe"]},
+        "filters": {"filetypes": ["pe", "pdb"]},
         "url": "http://symbolserver.unity3d.com/",
         "is_public": True,
     },
@@ -2872,3 +2872,11 @@ SENTRY_REGION_CONFIG: Iterable[Region] = ()
 
 # How long we should wait for a gateway proxy request to return before giving up
 GATEWAY_PROXY_TIMEOUT = None
+
+SENTRY_SLICING_LOGICAL_PARTITION_COUNT = 256
+# This maps a Sliceable for slicing by name and (lower logical partition, upper physical partition)
+# to a given slice. A slice is a set of physical resources in Sentry and Snuba.
+#
+# For each Sliceable, the range [0, SENTRY_SLICING_LOGICAL_PARTITION_COUNT) must be mapped
+# to a slice ID
+SENTRY_SLICING_CONFIG: Mapping[str, Mapping[Tuple[int, int], int]] = {}
