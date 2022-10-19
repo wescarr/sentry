@@ -4,7 +4,6 @@ import {User} from 'sentry/types';
 
 interface MemberListStoreDefinition extends StoreDefinition {
   getAll(): User[];
-  getByEmail(email: string): User | undefined;
   getById(id: string): User | undefined;
   getState(): User[];
   init(): void;
@@ -19,6 +18,9 @@ const storeConfig: MemberListStoreDefinition = {
   state: [],
 
   init() {
+    // XXX: Do not use `this.listenTo` in this store. We avoid usage of reflux
+    // listeners due to their leaky nature in tests.
+
     this.state = [];
     this.loaded = false;
   },
@@ -42,20 +44,6 @@ const storeConfig: MemberListStoreDefinition = {
     id = '' + id;
     for (let i = 0; i < this.state.length; i++) {
       if (this.state[i].id === id) {
-        return this.state[i];
-      }
-    }
-    return undefined;
-  },
-
-  getByEmail(email) {
-    if (!this.state) {
-      return undefined;
-    }
-
-    email = email.toLowerCase();
-    for (let i = 0; i < this.state.length; i++) {
-      if (this.state[i].email.toLowerCase() === email) {
         return this.state[i];
       }
     }

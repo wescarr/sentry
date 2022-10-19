@@ -458,7 +458,7 @@ class ReleaseOverview extends AsyncView<Props> {
                           )}
                           <ReleaseDetailsPageFilters>
                             <EnvironmentPageFilter />
-                            <StyledPageTimeRangeSelector
+                            <PageTimeRangeSelector
                               organization={organization}
                               relative={period ?? ''}
                               start={start ?? null}
@@ -716,10 +716,10 @@ const ReleaseDetailsPageFilters = styled('div')`
   grid-template-columns: minmax(0, max-content) 1fr;
   gap: ${space(2)};
   margin-bottom: ${space(2)};
-`;
 
-const StyledPageTimeRangeSelector = styled(PageTimeRangeSelector)`
-  height: 40px;
+  @media (max-width: ${p => p.theme.breakpoints.small}) {
+    grid-template-columns: auto;
+  }
 `;
 
 export default withApi(withPageFilters(withOrganization(ReleaseOverview)));
