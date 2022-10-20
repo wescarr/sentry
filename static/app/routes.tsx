@@ -249,6 +249,17 @@ function buildRoutes() {
         key="cd-disabled-member"
       />
       <Route
+        path="/join-request/"
+        component={withOrgSlugless(
+          make(() => import('sentry/views/organizationJoinRequest')),
+          {
+            path: '/join-request/',
+            redirectPath: '/join-request/:orgId/',
+          }
+        )}
+        key="orgless-join-request"
+      />
+      <Route
         path="/join-request/:orgId/"
         component={make(() => import('sentry/views/organizationJoinRequest'))}
         key="cd-join-request"
