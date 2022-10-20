@@ -261,7 +261,9 @@ function buildRoutes() {
       />
       <Route
         path="/join-request/:orgId/"
-        component={make(() => import('sentry/views/organizationJoinRequest'))}
+        component={withCustomerDomain(
+          make(() => import('sentry/views/organizationJoinRequest'))
+        )}
         key="cd-join-request"
       />
       <Route
