@@ -25,14 +25,16 @@ import {useColumnFilters} from '../hooks/useColumnFilters';
 import {useFuseSearch} from '../hooks/useFuseSearch';
 import {usePageLinks} from '../hooks/usePageLinks';
 import {useSortableColumns} from '../hooks/useSortableColumn';
-import {collectProfileFrames} from '../utils';
+import {aggregate, collectProfileFrames} from '../utils';
 
 const RESULTS_PER_PAGE = 50;
 
 export function SlowestFunctions() {
   const location = useLocation();
   const [state] = useProfileGroup();
-
+  const [groupByView, setGroupByView] = useState<GroupByOption>(
+    GROUP_BY_OPTIONS.occurrence
+  );
   const cursor = useMemo<number>(() => {
     const cursorQuery = decodeScalar(location.query.cursor, '');
     return parseInt(cursorQuery, 10) || 0;
@@ -40,18 +42,14 @@ export function SlowestFunctions() {
 
   const query = useMemo<string>(() => decodeScalar(location.query.query, ''), [location]);
 
-  const allFunctions: TableDataRow[] = useMemo(() => {
-    return state.type === 'resolved'
-      ? state.data.profiles
-          .flatMap(collectProfileFrames)
-          // Take only the first 500
-          .slice(0, 500)
-          // Self weight desc sort
-          .sort((a, b) => b['self weight'] - a['self weight'])
-      : [];
-  }, [state]);
+  const allData: TableDataRow[] = useMemo(() => {
+    const data =
+      state.type === 'resolved' ? state.data.profiles.flatMap(collectProfileFrames) : [];
 
-  const {search} = useFuseSearch(allFunctions, {
+    return groupByView.transform(data);
+  }, [state, groupByView]);
+
+  const {search} = useFuseSearch(allData, {
     keys: ['symbol'],
     threshold: 0.3,
   });
@@ -60,24 +58,16 @@ export function SlowestFunctions() {
     return search(query);
   });
 
-  useEffectAfterFirstRender(() => {
-    setSlowestFunctions(search(query));
-  }, [allFunctions, query, search]);
-
   const pageLinks = usePageLinks(slowestFunctions, cursor);
 
-  const {filters, columnFilters, filterPredicate} = useColumnFilters(slowestFunctions, [
+  const {filters, columnFilters, filterPredicate} = useColumnFilters(allData, [
     'type',
     'image',
   ]);
 
   const {currentSort, generateSortLink, sortCompareFn} = useSortableColumns({
-    sortableColumns: SORTABLE_COLUMNS,
+    ...groupByView.sort,
     querystringKey: 'functionsSort',
-    defaultSort: {
-      key: 'self weight' as TableColumnKey,
-      order: 'desc',
-    },
   });
 
   const handleSearch = useCallback(
@@ -96,6 +86,10 @@ export function SlowestFunctions() {
     [location, search]
   );
 
+  useEffectAfterFirstRender(() => {
+    setSlowestFunctions(search(query));
+  }, [allData, query, search]);
+
   const data = slowestFunctions
     .filter(filterPredicate)
     .sort(sortCompareFn)
@@ -105,12 +99,15 @@ export function SlowestFunctions() {
     <Fragment>
       <ActionBar>
         <CompactSelect
-          options={[{label: 'None', value: 'none'}]}
-          value="none"
+          options={Object.values(GROUP_BY_OPTIONS)}
+          value={groupByView.value}
           triggerProps={{
-            prefix: t('Group by'),
+            prefix: t('View'),
           }}
           placement="bottom right"
+          onChange={option => {
+            setGroupByView(GROUP_BY_OPTIONS[option.value]);
+          }}
         />
         <SearchBar
           defaultQuery=""
@@ -156,16 +153,16 @@ export function SlowestFunctions() {
       </ActionBar>
 
       <GridEditable
-        title={t('Slowest Functions by Occurrence')}
+        // title={groupByView.title}
         isLoading={state.type === 'loading'}
         error={state.type === 'errored'}
         data={data}
-        columnOrder={COLUMN_ORDER.map(key => COLUMNS[key])}
+        columnOrder={groupByView.columns.map(key => COLUMNS[key])}
         columnSortBy={[currentSort]}
         grid={{
           renderHeadCell: renderTableHead({
-            rightAlignedColumns: RIGHT_ALIGNED_COLUMNS,
-            sortableColumns: RIGHT_ALIGNED_COLUMNS,
+            rightAlignedColumns: new Set(groupByView.rightAlignedColumns),
+            sortableColumns: new Set(groupByView.rightAlignedColumns),
             currentSort,
             generateSortLink,
           }),
@@ -178,9 +175,6 @@ export function SlowestFunctions() {
     </Fragment>
   );
 }
-
-const RIGHT_ALIGNED_COLUMNS = new Set<TableColumnKey>(['self weight', 'total weight']);
-const SORTABLE_COLUMNS = new Set<TableColumnKey>(['self weight', 'total weight']);
 
 const ActionBar = styled('div')`
   display: grid;
@@ -221,10 +215,11 @@ function ProfilingFunctionsTableCell({
   const {orgId, projectId, eventId} = useParams();
 
   switch (column.key) {
+    case 'p75':
+    case 'p95':
     case 'self weight':
-      return <NumberContainer>{formatter(value)}</NumberContainer>;
     case 'total weight':
-      return <NumberContainer>{formatter(value)}</NumberContainer>;
+      return <NumberContainer>{formatter(value as number)}</NumberContainer>;
     case 'image':
       return <Container>{value ?? 'Unknown'}</Container>;
     case 'thread': {
@@ -235,7 +230,7 @@ function ProfilingFunctionsTableCell({
               orgSlug: orgId,
               projectSlug: projectId,
               profileId: eventId,
-              query: {tid: dataRow.thread},
+              query: {tid: dataRow.thread as string},
             })}
           >
             {value}
@@ -256,23 +251,16 @@ const tableColumnKey = [
   'type',
   'self weight',
   'total weight',
+  'p75',
+  'p95',
+  'count',
 ] as const;
 
 type TableColumnKey = typeof tableColumnKey[number];
 
-type TableDataRow = Record<TableColumnKey, any>;
+type TableDataRow = Partial<Record<TableColumnKey, string | number>>;
 
 type TableColumn = GridColumnOrder<TableColumnKey>;
-
-const COLUMN_ORDER: TableColumnKey[] = [
-  'symbol',
-  'image',
-  'file',
-  'thread',
-  'type',
-  'self weight',
-  'total weight',
-];
 
 // TODO: looks like these column names change depending on the platform?
 const COLUMNS: Record<TableColumnKey, TableColumn> = {
@@ -311,4 +299,139 @@ const COLUMNS: Record<TableColumnKey, TableColumn> = {
     name: t('Total Weight'),
     width: COL_WIDTH_UNDEFINED,
   },
+  p75: {
+    key: 'p75',
+    name: t('P75'),
+    width: COL_WIDTH_UNDEFINED,
+  },
+  p95: {
+    key: 'p95',
+    name: t('P95'),
+    width: COL_WIDTH_UNDEFINED,
+  },
+  count: {
+    key: 'count',
+    name: t('Count'),
+    width: COL_WIDTH_UNDEFINED,
+  },
 };
+
+const quantile = (arr: number[], q: number) => {
+  const sorted = arr.sort();
+  const pos = (sorted.length - 1) * q;
+  const base = Math.floor(pos);
+  const rest = pos - base;
+  if (sorted[base + 1] !== undefined) {
+    return sorted[base] + rest * (sorted[base + 1] - sorted[base]);
+  }
+  return sorted[base];
+};
+
+const p75AggregateColumn = {
+  key: 'p75',
+  compute: rows =>
+    quantile(
+      rows.map(v => v['self weight']),
+      0.75
+    ),
+};
+
+const p95AggregateColumn = {
+  key: 'p95',
+  compute: rows =>
+    quantile(
+      rows.map(v => v['self weight']),
+      0.95
+    ),
+};
+
+const countAggregateColumn = {
+  key: 'count',
+  compute: rows => rows.length,
+};
+
+const GROUP_BY_OPTIONS = {
+  occurrence: {
+    label: t('All Functions'),
+    value: 'occurrence',
+    columns: [
+      'symbol',
+      'image',
+      'file',
+      'thread',
+      'type',
+      'self weight',
+      'total weight',
+    ] as TableColumnKey[],
+    transform: (data: any[]) => data.slice(0, 500),
+    sort: {
+      sortableColumns: ['self weight', 'total weight'],
+      defaultSort: {
+        key: 'self weight',
+        order: 'desc',
+      },
+    },
+    rightAlignedColumns: ['self weight', 'total weight'],
+  },
+  symbol: {
+    label: t('Group by Symbol'),
+    value: 'symbol',
+    columns: ['symbol', 'type', 'image', 'p75', 'p95', 'count'] as TableColumnKey[],
+    transform: (data: any[]) =>
+      aggregate(
+        data,
+        ['symbol', 'type', 'image'],
+        [p75AggregateColumn, p95AggregateColumn, countAggregateColumn]
+      ),
+    sort: {
+      sortableColumns: ['p75', 'p95', 'count'],
+      defaultSort: {
+        key: 'p75',
+        order: 'desc',
+      },
+    },
+    rightAlignedColumns: ['p75', 'p95', 'count'],
+  },
+  package: {
+    label: t('Group by Package'),
+    value: 'package',
+    columns: ['type', 'image', 'p75', 'p95', 'count'] as TableColumnKey[],
+    transform: (data: any[]) => {
+      const _d = aggregate(
+        data,
+        ['type', 'image'],
+        [p75AggregateColumn, p95AggregateColumn, countAggregateColumn]
+      );
+      return _d;
+    },
+    sort: {
+      sortableColumns: ['p75', 'p95', 'count'],
+      defaultSort: {
+        key: 'p75',
+        order: 'desc',
+      },
+    },
+    rightAlignedColumns: ['p75', 'p95', 'count'],
+  },
+  file: {
+    label: t('Group by File'),
+    value: 'file',
+    columns: ['file', 'type', 'image', 'p75', 'p95', 'count'] as TableColumnKey[],
+    transform: (data: any[]) =>
+      aggregate(
+        data,
+        ['type', 'image', 'file'],
+        [p75AggregateColumn, p95AggregateColumn, countAggregateColumn]
+      ),
+    sort: {
+      sortableColumns: ['p75', 'p95', 'count'],
+      defaultSort: {
+        key: 'p75',
+        order: 'desc',
+      },
+    },
+    rightAlignedColumns: ['p75', 'p95', 'count'],
+  },
+} as const;
+
+type GroupByOption = typeof GROUP_BY_OPTIONS[keyof typeof GROUP_BY_OPTIONS];
