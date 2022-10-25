@@ -1,6 +1,5 @@
 name: Prepare Release
-on:
-  workflow_dispatch:
+on: [push, pull_request, workflow_dispatch]
 jobs:
   jest-balance:
     # Make sure this matches the runner that runs frontend tests
