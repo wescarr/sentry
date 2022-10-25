@@ -1,0 +1,39 @@
+name: Prepare Release
+on:
+  workflow_dispatch:
+jobs:
+  jest-balance:
+    # Make sure this matches the runner that runs frontend tests
+    runs-on: ubuntu-20.04
+    name: 'Release a new version'
+    steps:
+      - uses: actions/checkout@7884fcad6b5d53d10323aee724dc68d8b9096a2e # v2
+        name: Checkout sentry
+        with:
+          # Avoid codecov error message related to SHA resolution:
+          # https://github.com/codecov/codecov-bash/blob/7100762afbc822b91806a6574658129fe0d23a7d/codecov#L891
+          fetch-depth: '2'
+
+      - uses: getsentry/action-setup-volta@54775a59c41065f54ecc76d1dd5f2cdc7a1550cb # v1.1.0
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Build CSS
+        run: NODE_ENV=production yarn build-css
+
+      - name: jest
+        env:
+          GITHUB_PR_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          GITHUB_PR_REF: ${{ github.event.pull_request.head.ref || github.ref }}
+          # XXX: CI_NODE_TOTAL must be hardcoded to the length of strategy.matrix.instance.
+          #      Otherwise, if there are other things in the matrix, using strategy.job-total
+          #      wouldn't be correct.
+          CI_NODE_TOTAL: 4
+          CI_NODE_INDEX: ${{ matrix.instance }}
+        run: |
+          JEST_TEST_BALANCER=1 yarn test-ci
+      - uses: actions/upload-artifact@82c141cc518b40d92cc801eee768e7aafc9c2fa2 # v2
+        with:
+          name: jest-balance.json
+          path: tests/js/test-balancer/jest-balance.json
