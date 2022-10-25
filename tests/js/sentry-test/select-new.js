@@ -22,10 +22,6 @@ export function openMenu(wrapper, options = {}) {
   return wrapper;
 }
 
-export function clearValue(wrapper) {
-  wrapper.find('.Select-clear-zone').simulate('mouseDown', {button: 0});
-}
-
 export function findOption(wrapper, {value, label} = {}, options) {
   const selector = getSelector(options);
   const valueSelector = value ? 'value' : 'label';
@@ -35,11 +31,6 @@ export function findOption(wrapper, {value, label} = {}, options) {
 export function selectByLabel(wrapper, label, options = {}) {
   openMenu(wrapper, options);
   findOption(wrapper, {label}, options).at(0).simulate('click');
-}
-
-export function getOptionByLabel(wrapper, label, options = {}) {
-  openMenu(wrapper, options);
-  return findOption(wrapper, {label}, options).at(0);
 }
 
 export function selectByValue(wrapper, value, options = {}) {
@@ -63,13 +54,4 @@ export async function selectByQuery(wrapper, query, options = {}) {
   await tick(); // Hit the mock URL.
 
   selectByValue(wrapper, query, options);
-}
-
-export async function selectByValueAsync(wrapper, value, options = {}) {
-  openMenu(wrapper, options);
-
-  await tick();
-  wrapper.update();
-
-  findOption(wrapper, {value}, options).at(0).simulate('click');
 }
