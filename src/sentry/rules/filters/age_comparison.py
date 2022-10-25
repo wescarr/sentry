@@ -6,6 +6,7 @@ from django import forms
 from django.utils import timezone
 
 from sentry.eventstore.models import GroupEvent
+from sentry.models import Group
 from sentry.rules import EventState
 from sentry.rules.filters.base import EventFilter
 
@@ -55,11 +56,9 @@ class AgeComparisonFilter(EventFilter):
     label = "The issue is {comparison_type} than {value} {time}"
     prompt = "The issue is older or newer than..."
 
-    def passes(self, event: GroupEvent, state: EventState) -> bool:
-        comparison_type = self.get_option("comparison_type")
-        time = self.get_option("time")
+    def _validate(self, comparison_type, time, value):
         try:
-            value = int(self.get_option("value"))
+            value = int(value)
         except (TypeError, ValueError):
             return False
 
@@ -73,11 +72,37 @@ class AgeComparisonFilter(EventFilter):
             )
         ):
             return False
+        return value
 
+    def _compare(self, first_seen, comparison_type, time, value):
         _, delta_time = timeranges[time]
-
-        first_seen = event.group.first_seen
-        passes_: bool = age_comparison_map[comparison_type](
+        return age_comparison_map[comparison_type](
             first_seen + (value * delta_time), timezone.now()
         )
-        return passes_
+
+    def passes(self, event: GroupEvent, state: EventState) -> bool:
+        comparison_type = self.get_option("comparison_type")
+        time = self.get_option("time")
+        value = self.get_option("value")
+
+        value = self._validate(comparison_type, time, value)
+        if value is False:
+            return False
+
+        return self._compare(event.group.first_seen, comparison_type, time, value)
+
+    def passes_activity(self, condition_activity):
+        comparison_type = self.get_option("comparison_type")
+        time = self.get_option("time")
+        value = self.get_option("value")
+
+        value = self._validate(comparison_type, time, value)
+        if value is False:
+            return False
+
+        try:
+            group = Group.objects.get_from_cache(id=condition_activity.group_id)
+        except Group.DoesNotExist:
+            return False
+
+        return self._compare(group.first_seen, comparison_type, time, value)
